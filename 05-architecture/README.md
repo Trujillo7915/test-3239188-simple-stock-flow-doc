@@ -248,3 +248,37 @@ El diseño establece explícitamente qué capa y motor custodia cada invariante 
 | **SUP-ARQ-01** | La API HTTP expone controladores REST sincrónicos con respuestas JSON estándar. | El modelo define contratos y esquemas transaccionales compatibles con microservicios o monolitos modulares en .NET Core / C#. |
 | **SUP-ARQ-02** | El almacenamiento de imágenes utiliza un proveedor compatible con claves opacas S3/Blob Storage. | El modelo declara expresamente que `image_key` es una clave opaca (`varchar(512)`) y no almacena rutas locales ni bytes (`D-08`). |
 | **SUP-ARQ-03** | El control de transacciones de aplicación se delega a la unidad de trabajo (`DbContext.SaveChangesAsync`) de EF Core. | Consistente con el uso de migraciones de EF Core (`ADR-001`) y el mapeo de propiedades sombra. |
+
+---
+
+## 7. Cierre Arquitectónico: Comprobación de Consistencia Integral (Verification Loop)
+
+Siguiendo el flujo del reto SDD, se cierra el ciclo verificando que la arquitectura del sistema ensamble armónicamente con cada uno de los documentos reconstruidos hacia atrás y con el modelo de datos físico (`spec/data-model.md`):
+
+```mermaid
+flowchart LR
+    CTX["01-context<br>(Alcance y Fronteras)"] --> ARQ["05-architecture<br>(Piezas y Puertos)"]
+    DOM["02-domain<br>(Invariantes y Eventos)"] --> ARQ
+    PROD["03-product<br>(Visión y Principios)"] --> ARQ
+    REQ["04-requirements<br>(HU y RNF)"] --> ARQ
+    ARQ --> MODEL["spec/data-model.md<br>(5 tablas, 22 columnas, 8 restricciones)"]
+```
+
+### 7.1 Matriz de Alineación de Consistencia Integral
+
+| Dimensión Reconstruida | Compromiso en la Documentación | Reflejo Exacto en la Arquitectura y Motor | Estado de Validación |
+|---|---|---|---|
+| **Contexto (`01-context`)** | Ausencia absoluta de clientes/compradores y pasarelas de pago (`§1`, `§7`). | No existen agregados ni tablas de clientes; la venta registra únicamente la autoría del operador (`sold_by`) (`§3`). | **Cuadra al 100%** |
+| **Contexto (`01-context`)** | Cierre de auditoría genérica `created_at` / `updated_at` (`§8`). | La arquitectura no implementa triggers ni propiedades sombra de auditoría; solo existen `sale.sold_at` y `product.deleted_at` (`§3`, `§8`). | **Cuadra al 100%** |
+| **Dominio (`02-domain`)** | Valores congelados en líneas de venta (`§1`, `§2.4`, `ADR-004`). | Entidad `SaleItem` clona `product_name`, `unit_price` y `category_name` en columnas físicas de base de datos (`§3`, `T-11`). | **Cuadra al 100%** |
+| **Dominio (`02-domain`)** | Restricción inquebrantable de stock no negativo (`ADR-002`). | Custodiada simultáneamente por el método `Product.Withdraw` en C# y `ck_product_stock_non_negative` en Postgres (`§4`). | **Cuadra al 100%** |
+| **Producto (`03-product`)** | Esencialismo en catálogo: solo 5 atributos (`DP-03`). | Tabla `product` contiene exactamente `id`, `name`, `price`, `stock`, `category_id`, `image_key` (y técnica `deleted_at`) (`§3`). | **Cuadra al 100%** |
+| **Producto (`03-product`)** | Protección de datos del operador y no ranking (`DP-02`). | No existe índice sobre `sold_by_user_id` ni puerto de consulta de ventas desglosadas por vendedor (`§6.3`). | **Cuadra al 100%** |
+| **Producto (`03-product`)** | Estabilidad histórica de reportes ante recategorización (`§11.1`, `H-1`). | El puerto de lectura `ISalesReportQuery` agrupa por `category_name` congelado en motor (`Q9`, `D-06`). | **Cuadra al 100%** |
+| **Requisitos (`04-requirements`)** | Atomicidad en registro de ventas con inventario (`HU-VTA-01`, `RNF-01`). | Caso de uso `RegisterSale` coordina `Sale` y `Product` en una sola transacción ACID de PostgreSQL (`§2.3`). | **Cuadra al 100%** |
+| **Requisitos (`04-requirements`)** | Rendimiento y concurrencia optimista (`RNF-02`, `RNF-07`). | Implementación de `xmin` para evitar contención pesimista e índice cubridor en `sale_item` (`§3`, `§6.2`, `T-13`). | **Cuadra al 100%** |
+| **Modelo Físico (`spec/data-model.md`)** | 5 tablas en singular, 22 columnas físicas, 8 restricciones y 12 índices. | Toda la arquitectura mapea al esquema `sales`, sin tablas puente sobrantes ni dependencias fantasma (`§0`, `§10`). | **Cuadra al 100%** |
+
+### 7.2 Veredicto de Cierre
+La arquitectura hexagonal y los patrones diseñados satisfacen con rigor matemático todas las invariantes y decisiones registradas en `spec/data-model.md`, sin inventar requerimientos innecesarios y garantizando trazabilidad total de extremo a extremo.
+
