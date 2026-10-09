@@ -49,11 +49,11 @@ Branch names must be written in **lowercase English** using kebab-case:
 Every commit message in this project MUST be written in **English** following the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 ```
-[type]([scope]): [short imperative description in lowercase, no trailing period]
+<type>(<scope>): <short imperative description in lowercase, no trailing period>
 
-[optional body — explain WHY the change was made and technical trade-offs]
+<optional body — explain WHY the change was made and technical trade-offs>
 
-[optional footer — reference task ID, user story, or spec section]
+<optional footer — reference task ID, user story, or spec section>
 ```
 
 ### Allowed Commit Types:
